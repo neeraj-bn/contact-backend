@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler")
 const Contact = require("../models/contactModel")
 
 const getContacts = asyncHandler(async (req, res) => {
-    const contacts = await Contact.find();
+    const contacts = await Contact.find({ user_id: req.user.id });
     res.status(200).json(contacts)
 })
 
@@ -19,17 +19,21 @@ const getContact = asyncHandler(async (req, res) => {
 })
 
 const createContacts = asyncHandler(async (req, res) => {
-    console.log("The requested body is", req.body)
     const { name, email, phone } = req.body;
     if (!name || !email || !phone) {
+        console.log("The requested body is")
+
         res.status(400);
         throw new Error("All fields are mandatory")
     }
     const contact = await Contact.create({
         name,
         email,
-        phone
+        phone,
+        user_id: req.user.id
     })
+    console.log("The requested body is", contact)
+
     res.status(201).json(contact)
 })
 
@@ -43,6 +47,10 @@ const updateContact = asyncHandler(async (req, res) => {
         throw new Error("Contact not found");
     }
 
+    if (contact.user_id.toString() != req.user.id) {
+        res.status(403);
+        throw new Error("User dont have permision")
+    }
     const updatedContact = await Contact.findByIdAndUpdate(
         req.params.id,
         req.body,
@@ -57,12 +65,19 @@ const deleteContact = asyncHandler(async (req, res) => {
 
     contact = await Contact.findById(req.params.id)
 
+
+
     if (!contact) {
         res.status(404);
         throw new Error("Contact not found");
     }
 
-    await Contact.deleteOne()
+    if (contact.user_id.toString() != req.user.id) {
+        res.status(403);
+        throw new Error("User dont have permision")
+    }
+
+    await Contact.deleteOne({_id:req.params.id})
     console.log("delete called")
 
     res.status(200).json({
